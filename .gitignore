@@ -1,0 +1,10 @@
+venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+data/
+explaination.md
+copy.py
+taxi_pipeline.session.sql
+test_text_to_sql.py
