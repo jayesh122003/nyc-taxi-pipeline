@@ -8,3 +8,5 @@ explaination.md
 copy.py
 taxi_pipeline.session.sql
 test_text_to_sql.py
+.claude/
+.streamlit/secrets.toml

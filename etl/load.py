@@ -5,13 +5,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def get_engine():
-    db_name = os.getenv('DB_NAME')
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_host = os.getenv('DB_HOST')
-    db_port = os.getenv('DB_PORT')
+    try:
+        import streamlit as st
+        db_name = st.secrets["DB_NAME"]
+        db_user = st.secrets["DB_USER"]
+        db_password = st.secrets["DB_PASSWORD"]
+        db_host = st.secrets["DB_HOST"]
+        db_port = st.secrets["DB_PORT"]
+    except:
+        load_dotenv()
+        db_name = os.getenv('DB_NAME')
+        db_user = os.getenv('DB_USER')
+        db_password = os.getenv('DB_PASSWORD')
+        db_host = os.getenv('DB_HOST')
+        db_port = os.getenv('DB_PORT')
 
-    connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    connection_string = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?sslmode=require"
     engine = create_engine(connection_string)
     return engine
 

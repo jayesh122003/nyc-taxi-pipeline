@@ -1,11 +1,17 @@
 from openai import OpenAI
 import os
-from dotenv import load_dotenv
 import textwrap
 import json
-load_dotenv()
 
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+def get_openai_client():
+    try:
+        import streamlit as st
+        api_key = st.secrets["OPENAI_API_KEY"]
+    except:
+        from dotenv import load_dotenv
+        load_dotenv()
+        api_key = os.getenv('OPENAI_API_KEY')
+    return OpenAI(api_key=api_key)
 
 
 def generate_kpi_summary(total_trips, total_revenue, avg_fare, 
@@ -54,6 +60,7 @@ def generate_kpi_summary(total_trips, total_revenue, avg_fare,
         "payment_type": {payment_mix}
     }}"""
     
+    client = get_openai_client()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -193,7 +200,9 @@ def build_text_to_sql_prompt(schema_str: str) -> str:
         )    
 
 def text_to_sql(question: str, schema_str: str):
-    
+
+
+    client = get_openai_client()
     system_prompt = build_text_to_sql_prompt(schema_str)
     response = client.chat.completions.create(
         model="gpt-4o-mini",

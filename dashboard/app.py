@@ -389,7 +389,7 @@ if page == "📋  Overview":
                 "- LLM-generated KPI summaries"
             )
 
-    st.space("large")
+    st.markdown("")
 
     # ── Key Findings ──
     st.markdown('<p class="section-label">Key Findings from EDA</p>', unsafe_allow_html=True)
@@ -400,7 +400,7 @@ if page == "📋  Overview":
     f3.metric("Top Revenue Zone", "JFK Airport", border=True)
     f4.metric("Dominant Payment", "Credit Card", border=True)
 
-    st.space("medium")
+    st.markdown("")
 
     # ── Observations ──
     with st.container(border=True):
@@ -437,58 +437,6 @@ if page == "📋  Overview":
 
 elif page == "📊  Analytics":
 
-    kpi_df = run_query("""
-        SELECT
-            COUNT(*) as total_trips,
-            ROUND(SUM(total_amount)::numeric, 2) as total_revenue,
-            ROUND(AVG(total_amount)::numeric, 2) as avg_fare,
-            ROUND((SUM(total_amount)/SUM(trip_distance))::numeric, 2) as revenue_per_mile
-        FROM taxi_trips
-    """)
-
-    hourly_df = run_query("""
-        WITH base AS (
-            SELECT EXTRACT(HOUR FROM tpep_pickup_datetime) as hour,
-                CASE WHEN (EXTRACT(DOW FROM tpep_pickup_datetime) IN (0,6)) THEN 'Weekend' ELSE 'Weekday' END as day_type
-            FROM taxi_trips
-        ),
-        grouped AS (
-            SELECT hour, day_type, COUNT(*) as trip_count FROM base GROUP BY hour, day_type
-        )
-        SELECT hour, day_type,
-            CASE WHEN day_type = 'Weekend' THEN trip_count / 2 ELSE trip_count / 5 END as avg_daily_trips
-        FROM grouped ORDER BY hour
-    """)
-
-    top10_pz_df = run_query("""
-        SELECT CAST(pulocationid AS TEXT) as pulocationid, COUNT(*) AS total_trips,
-               ROUND(SUM(total_amount)::numeric, 2) as total_sales, zone_lookup."Zone"
-        FROM taxi_trips JOIN zone_lookup ON pulocationid = "LocationID"
-        GROUP BY CAST(pulocationid AS TEXT), zone_lookup."Zone"
-        ORDER BY total_sales DESC LIMIT 10;
-    """)
-
-    cum_rev_df = run_query("""
-        WITH day_info AS (
-            SELECT total_amount, EXTRACT(DAY FROM tpep_dropoff_datetime) as day_of_month FROM taxi_trips
-        ),
-        revenue_per_day AS (
-            SELECT day_of_month, SUM(total_amount) as daily_revenue
-            FROM day_info GROUP BY day_of_month ORDER BY day_of_month ASC
-        )
-        SELECT day_of_month, daily_revenue,
-               SUM(daily_revenue) OVER (ORDER BY day_of_month) as cumulative_daily_revenue
-        FROM revenue_per_day;
-    """)
-
-    payment_df = run_query("""
-        SELECT payment_type, SUM(total_amount) as total_revenue, COUNT(*) as total_trips,
-        CASE WHEN payment_type = '1' THEN 'Credit Card' WHEN payment_type = '2' THEN 'Cash'
-             WHEN payment_type = '3' THEN 'No Charge' WHEN payment_type = '4' THEN 'Dispute'
-        END as payment_label
-        FROM taxi_trips GROUP BY payment_type, payment_label ORDER BY payment_type
-    """)
-
     # ── Header ──
     st.markdown("""
     <div class="page-header">
@@ -498,13 +446,23 @@ elif page == "📊  Analytics":
     """, unsafe_allow_html=True)
 
     # ── KPI Cards ──
+    with st.spinner("Loading KPIs..."):
+        kpi_df = run_query("""
+            SELECT
+                COUNT(*) as total_trips,
+                ROUND(SUM(total_amount)::numeric, 2) as total_revenue,
+                ROUND(AVG(total_amount)::numeric, 2) as avg_fare,
+                ROUND((SUM(total_amount)/SUM(trip_distance))::numeric, 2) as revenue_per_mile
+            FROM taxi_trips
+        """)
+
     k1, k2, k3, k4 = st.columns(4, gap="medium")
     k1.metric("Total Trips", f"{kpi_df['total_trips'][0]:,}", border=True)
     k2.metric("Total Revenue", f"${kpi_df['total_revenue'][0]:,.0f}", border=True)
     k3.metric("Avg Fare", f"${kpi_df['avg_fare'][0]:,.2f}", border=True)
     k4.metric("Revenue / Mile", f"${kpi_df['revenue_per_mile'][0]:,.2f}", border=True)
 
-    st.space("large")
+    st.markdown("")
 
     # ── Row 1: Hourly Demand + Top Zones ──
     st.markdown('<p class="section-label">Demand & Geography</p>', unsafe_allow_html=True)
@@ -515,6 +473,21 @@ elif page == "📊  Analytics":
         with st.container(border=True):
             st.markdown("**Trips by Hour of Day**")
             st.caption("Average daily trips — weekday vs weekend")
+
+            with st.spinner("Loading hourly data..."):
+                hourly_df = run_query("""
+                    WITH base AS (
+                        SELECT EXTRACT(HOUR FROM tpep_pickup_datetime) as hour,
+                            CASE WHEN (EXTRACT(DOW FROM tpep_pickup_datetime) IN (0,6)) THEN 'Weekend' ELSE 'Weekday' END as day_type
+                        FROM taxi_trips
+                    ),
+                    grouped AS (
+                        SELECT hour, day_type, COUNT(*) as trip_count FROM base GROUP BY hour, day_type
+                    )
+                    SELECT hour, day_type,
+                        CASE WHEN day_type = 'Weekend' THEN trip_count / 2 ELSE trip_count / 5 END as avg_daily_trips
+                    FROM grouped ORDER BY hour
+                """)
 
             weekday_h = hourly_df[hourly_df['day_type'] == 'Weekday'].sort_values('hour')
             weekend_h = hourly_df[hourly_df['day_type'] == 'Weekend'].sort_values('hour')
@@ -540,6 +513,15 @@ elif page == "📊  Analytics":
         with st.container(border=True):
             st.markdown("**Top 10 Pickup Zones**")
             st.caption("By total revenue generated")
+
+            with st.spinner("Loading zone data..."):
+                top10_pz_df = run_query("""
+                    SELECT CAST(pulocationid AS TEXT) as pulocationid, COUNT(*) AS total_trips,
+                           ROUND(SUM(total_amount)::numeric, 2) as total_sales, zone_lookup."Zone"
+                    FROM taxi_trips JOIN zone_lookup ON pulocationid = "LocationID"
+                    GROUP BY CAST(pulocationid AS TEXT), zone_lookup."Zone"
+                    ORDER BY total_sales DESC LIMIT 10;
+                """)
 
             top10_sorted = top10_pz_df.sort_values('total_sales', ascending=True)
             fig_zones = px.bar(
@@ -570,6 +552,20 @@ elif page == "📊  Analytics":
             st.markdown("**Daily Revenue Trend**")
             st.caption("Daily revenue (bars) and cumulative total (line) — January 2024")
 
+            with st.spinner("Loading revenue data..."):
+                cum_rev_df = run_query("""
+                    WITH day_info AS (
+                        SELECT total_amount, EXTRACT(DAY FROM tpep_dropoff_datetime) as day_of_month FROM taxi_trips
+                    ),
+                    revenue_per_day AS (
+                        SELECT day_of_month, SUM(total_amount) as daily_revenue
+                        FROM day_info GROUP BY day_of_month ORDER BY day_of_month ASC
+                    )
+                    SELECT day_of_month, daily_revenue,
+                           SUM(daily_revenue) OVER (ORDER BY day_of_month) as cumulative_daily_revenue
+                    FROM revenue_per_day;
+                """)
+
             fig_rev = go.Figure()
             fig_rev.add_trace(go.Bar(
                 x=cum_rev_df['day_of_month'], y=cum_rev_df['daily_revenue'],
@@ -599,6 +595,15 @@ elif page == "📊  Analytics":
         with st.container(border=True):
             st.markdown("**Payment Breakdown**")
             st.caption("Revenue share by payment method")
+
+            with st.spinner("Loading payment data..."):
+                payment_df = run_query("""
+                    SELECT payment_type, SUM(total_amount) as total_revenue, COUNT(*) as total_trips,
+                    CASE WHEN payment_type = '1' THEN 'Credit Card' WHEN payment_type = '2' THEN 'Cash'
+                         WHEN payment_type = '3' THEN 'No Charge' WHEN payment_type = '4' THEN 'Dispute'
+                    END as payment_label
+                    FROM taxi_trips GROUP BY payment_type, payment_label ORDER BY payment_type
+                """)
 
             fig_pay = px.pie(
                 payment_df, names='payment_label', values='total_revenue',
@@ -637,7 +642,7 @@ elif page == "🤖  AI Assistant":
 
     # ── Tab 1: AI Insight ──
     with tab_insight:
-        st.space("small")
+        st.markdown("")
 
         with st.container(border=True):
             st.markdown("##### How it works")
@@ -647,7 +652,7 @@ elif page == "🤖  AI Assistant":
                 "actionable takeaways you might miss scanning charts alone."
             )
 
-        st.space("small")
+        st.markdown("")
 
         kpi_df = run_query("""
             SELECT COUNT(*) as total_trips,
@@ -710,7 +715,7 @@ elif page == "🤖  AI Assistant":
 
     # ── Tab 2: Ask the Data ──
     with tab_query:
-        st.space("small")
+        st.markdown("")
 
         with st.container(border=True):
             st.markdown("##### How it works")
@@ -719,7 +724,7 @@ elif page == "🤖  AI Assistant":
                 "the database, and auto-selects the best chart type to visualize the results."
             )
 
-        st.space("small")
+        st.markdown("")
 
         schema_df = run_query("""
             SELECT table_name, column_name, data_type
