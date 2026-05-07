@@ -1,52 +1,60 @@
-payment_type:
+# NYC Yellow Taxi Analytics Pipeline
+🔗 [Live Dashboard](https://nyc-taxi-pipeline-itmmxawiwp7lsfsg5hzkmc.streamlit.app/)
 
-1 = Credit card
-2 = Cash
-3 = No charge
-4 = Dispute
-
-RatecodeID:
-
-1 = Standard rate
-2 = JFK airport
-3 = Newark airport
-4 = Nassau/Westchester
-5 = Negotiated fare
-6 = Group ride
-
-VendorID:
-
-1 = Creative Mobile Technologies
-2 = VeriFone Inc
-
-#  EDA
-I performed exploratory data analysis to identify data quality issues, then encoded those decisions as modular cleaning functions.
-"I found negative fares, impossible trip distances, and dates going back to 2002 in a January 2024 dataset — all of which would corrupt downstream KPI calculations.
+## What is it?
+An end-to-end data pipeline and analytics dashboard for NYC Yellow Taxi trip data (January 2024). Built with a modular ETL pipeline in Python, a PostgreSQL backend, and an interactive Streamlit dashboard. Features LLM-powered KPI summaries and natural language querying via Text-to-SQL.
 
 
-Findings & Cleaning Decisions:
+## What I built?
 
-Negative financial values — ~1.27% of rows had negative fare_amount, total_amount, etc. You cross-checked and found most of these had payment_type=4 (Dispute). Without a transaction ID to confirm refunds, you removed them all.
-DateTime outliers — 18 rows had pickup/dropoff dates outside January 2024 (earliest was 2002-12-31). Removed.
-Trip duration anomalies — 56 negative durations, 814 zero-duration trips, and 1,651 trips over 10 hours. All removed.
-Passenger count issues — 31,465 rows with 0 passengers and 60 rows exceeding the legal limit of 6. Removed.
-Trip distance problems — 60,371 rows with zero distance (of which 56,569 had positive fares — likely GPS failures), and 59 trips over 100 miles. Removed.
-Null value pattern — 140,162 rows had nulls in the same 5 columns (passenger_count, RatecodeID, store_and_fwd_flag, congestion_surcharge, Airport_fee). These were already caught by your passenger_count > 0 filter.
-Result: 242,271 rows removed (8.17%), leaving 2,722,353 clean rows.
+### 1. Exploratory Data Analysis (Findings and Decisions):
 
-The approach was methodical — you investigated each anomaly category independently, checked for correlations (like the dispute/negative-value link), and encoded each decision as a modular cleaning function for the ETL pipeline.
-
-# load.py
-
-df.tosql(id_exists="replace")...Why? because we want idempotency, and if we run a pipeline multiple times, we dont want the same data to be duplicated many times to our database
+**1.Negative Financial Values:** Observed around ~1.27% of rows had negative fare_amount, total_amount, etc. Cross-Checked to find out if they are related to any transaction ID,which might suggest reversals, but as there is no transaction ID, i concluded that it is misentry in the dataset and decided to remove these rows.
+**2.Date-Time Problem:** Observed negative trip durations (dropoff time < pickup time>), trips over 10 hours (which is highly unlikely for a taxi ride), dates outside of january 2024, and all of these consisted of less than ~0.1% of the dataset. I decided to remove these rows as well
+**3.Invalid Passenger Count** The legal limit for NYC Yellow Taxi is 6, and there were rows including passenger more than 6 and even 0. Decided to remove these rows.
+**4.Trip Distance Problem:** ~2.04% of the dataset, had rows with trip_distance = 0. Zero Distance Trips corrupts the distance based KPIs. I also suspected outliers with trip distance exceeding 100miles, unrealistic for NYC taxi. Removed all these rows.
+**5.Null Value Pattern:** 140,162 rows had nulls in the same 5 columns (passenger_count, RatecodeID, store_and_fwd_flag, congestion_surcharge, Airport_fee). These were already caught by passenger_count > 0 filter.
+**Result:** Removed ~8.17% of the dataset, which included all the problematic rows and null values.
 
 
-# Hourly demand chart characterized by weekday and weekend
-1. The chart suggests that people are staying out late on the weekends
-2. The demand on the weekday starts increasing at around 5am, suggesting people going on with there normal workday
-3. For weekday, the peak is around 18, which is usually the time, when people get back from work
-4. For weekends, the peak is around 16
+### 2. ETL Pipeline:
+
+**1.Extract:** Extracted the data from https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet, downloaded it and loaded the raw data as a dataframe. Also downloaded taxi_zone_lookup.csv to look up the pickup and dropoff location IDs.  
+**2. Transform:** Cleaned the data by applying all the findings in EDA. 
+**3.Load:** Chose PostgreSQL as my main database, because it handles large database and complex queries well. Loaded both the trip data and zone lookup data into the database. 
+
+### 3. SQL queries:
+
+Find out what key metrics I wanna investigate on. 
+1. KPIs includes Total Revenue, Total Trips, Average Fare and Revenue per mile. 
+2. Top 10 Pickup zones by total revenue generate 
+3. Daily Revenue Trend and Cumulative Daily Revenue. 
+4. Payment Breakdown: Card, Cash, Dispute and No Charge
+
+### 4. LLM integration:
+*Used OpenAI API with model gpt-4o-mini, because it's cost effective and sufficient for the current use case.*
+
+**1. Generating KPI summary:** Generates a summary and a business insight based on the KPIs.  The system prompt was well thought, so that the insights would be quick to read (140-160 words), would be impact and business driven. The prompt was engineered and put together with the help of Claude AI.
+**2. Text to SQL:** User can ask complex queries related to the database in the text box and get response with chart if needed. I restricted queries to read-only SELECT statements to prevent any data modification. Here the prompt was also well engineered, which fed, domain knowledge, schema structure, and output contract to the API. Each response from the API is in json format which could be any of the four cases:
+    1. OK: It returns an sql query and the type of chart.
+    2. Clarify: If the user asked question is not clear - it gives a suggestion, as to what makes the question clear. 
+    3. Refuse: If the question is off-topic.
+    4. Error: If asked column or table doesnt exist. 
+The prompt was written with the help of Claude AI after giving it a well thought procedure on how to write the prompt and the requirements that's needed. 
+
+### 5. Dashboard:
+
+All the KPIs, Charts and AI insight was built from scratch independently. Used Claude AI to design the dashboard.
+
+### Tech Stack
+Python, pandas, PostgreSQL, SQLAlchemy, Streamlit, Plotly, OpenAI API (gpt-4o-mini)
 
 
-# FOR LATER: 
-It could have this predictive feature, where we could analyse the cost for a taxi ride, based on pickup and dropoff location and time of the day and a user can directly query it and get an answer
+### How to Run Locally
+1. Clone the repo
+2. Create a virtual environment and install requirements
+3. Add a `.env` file with your PostgreSQL and OpenAI credentials
+4. Run `python etl/load.py` to populate the database
+5. Run `streamlit run dashboard/app.py`
+
+
