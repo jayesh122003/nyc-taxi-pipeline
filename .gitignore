@@ -10,3 +10,4 @@ taxi_pipeline.session.sql
 test_text_to_sql.py
 .claude/
 .streamlit/secrets.tomlapp_copy.py
+.streamlit/secrets.toml
