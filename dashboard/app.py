@@ -56,8 +56,14 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
-    html, body, p, h1, h2, h3, h4, h5, h6, span, div, label, input, textarea, button, a {
+    html, body, p, h1, h2, h3, h4, h5, h6, div, label, input, textarea, button, a {
         font-family: 'DM Sans', 'Inter', sans-serif !important;
+    }
+    /* Exclude Material Symbols icons from font override */
+    span[data-testid="stIconMaterial"],
+    [data-testid="stExpanderToggleIcon"] span,
+    .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded' !important;
     }
 
     /* Metric value styling */
@@ -438,9 +444,20 @@ if page == "📋  Overview":
                 "- Removed negative fares & impossible trip distances\n"
                 "- Filtered date outliers (records from 2002 in a 2024 dataset)\n"
                 "- Built interactive dashboard with Plotly\n"
-                "- Added AI-powered natural language querying\n"
+                "- Text-to-SQL with structured response contract (ok / clarify / refuse / error)\n"
                 "- LLM-generated KPI summaries"
             )
+
+    st.markdown("")
+
+    # ── Data Cleaning ──
+    st.markdown('<p class="section-label">Data Cleaning Summary</p>', unsafe_allow_html=True)
+
+    d1, d2, d3, d4 = st.columns(4, gap="medium")
+    d1.metric("Raw Rows", "2.96M", border=True)
+    d2.metric("Rows Removed", "242,271", border=True)
+    d3.metric("Removed %", "8.17%", border=True)
+    d4.metric("Clean Rows", "2.72M", border=True)
 
     st.markdown("")
 
@@ -465,6 +482,16 @@ if page == "📋  Overview":
             "- Revenue follows a weekly cycle — dips every 7 days then recovers. "
             "Cumulative growth is roughly linear, hitting the midpoint around day 15."
         )
+
+    st.markdown("")
+
+    # ── Tech Stack ──
+    st.markdown('<p class="section-label">Tech Stack</p>', unsafe_allow_html=True)
+    st.markdown(
+        "`Python` · `pandas` · `PostgreSQL` · `SQLAlchemy` · `Streamlit` · `Plotly` · `OpenAI API (gpt-4o-mini)`"
+    )
+
+    st.markdown("")
 
     # ── About ──
     st.markdown("""
@@ -672,7 +699,9 @@ elif page == "📊  Analytics":
                             orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.05),
             )
             fig_pay.update_traces(
-                textinfo='percent+label', textfont_size=12, textfont_color=TEXT,
+                textinfo='percent+label', textposition='inside',
+                textfont_size=11, textfont_color=DARK_BG,
+                insidetextorientation='horizontal',
                 marker=dict(line=dict(color=DARK_BG, width=2)),
             )
             st.plotly_chart(fig_pay, use_container_width=True)
@@ -836,21 +865,22 @@ elif page == "🤖  AI Assistant":
 
                             fig = None
                             if chart_type == 'bar':
-                                fig = px.bar(df, x=x, y=y, color=color, title=title,
+                                fig = px.bar(df, x=x, y=y, color=color,
                                              color_discrete_sequence=CHART_COLORS)
                             elif chart_type == 'line':
-                                fig = px.line(df, x=x, y=y, color=color, title=title,
+                                fig = px.line(df, x=x, y=y, color=color,
                                               color_discrete_sequence=CHART_COLORS)
                             elif chart_type == 'pie':
-                                fig = px.pie(df, names=x, values=y, color=color, title=title,
+                                fig = px.pie(df, names=x, values=y, color=color,
                                              color_discrete_sequence=CHART_COLORS, hole=0.4)
                                 fig.update_traces(
-                                    textinfo='label+percent', textposition='outside',
-                                    textfont_size=12, textfont_color=TEXT,
+                                    textinfo='label+percent', textposition='inside',
+                                    textfont_size=11, textfont_color=DARK_BG,
+                                    insidetextorientation='horizontal',
                                     marker=dict(line=dict(color=DARK_BG, width=2)),
                                 )
                             elif chart_type == 'bar_horizontal':
-                                fig = px.bar(df, x=y, y=x, orientation='h', color=color, title=title,
+                                fig = px.bar(df, x=y, y=x, orientation='h', color=color,
                                              color_discrete_sequence=CHART_COLORS)
                             elif chart_type == 'kpi_card':
                                 st.metric(title, df[y][0], border=True)
