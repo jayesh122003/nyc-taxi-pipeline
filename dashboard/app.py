@@ -54,16 +54,69 @@ PLOTLY_LAYOUT = dict(
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
     html, body, p, h1, h2, h3, h4, h5, h6, span, div, label, input, textarea, button, a {
-        font-family: 'Inter', sans-serif;
+        font-family: 'DM Sans', 'Inter', sans-serif !important;
+    }
+
+    /* Metric value styling */
+    [data-testid="stMetricValue"] p {
+        font-family: 'DM Sans', sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.5px !important;
+    }
+
+    /* Solid container borders */
+    [data-testid="stVerticalBlockBorderWrapper"] > div:has(> [data-testid="stVerticalBlock"]) {
+        border-style: solid !important;
+        border-color: #1E2128 !important;
+        border-radius: 10px !important;
+    }
+
+    /* Solid metric card borders */
+    [data-testid="stMetricValue"] {
+        font-family: 'Inter', sans-serif !important;
+    }
+    div[data-testid="stMetric"] {
+        border-style: solid !important;
+        border-color: #1E2128 !important;
+    }
+
+    /* Pin sidebar open — hide collapse button */
+    [data-testid="stSidebar"] button[kind="header"] {
+        display: none !important;
+    }
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        display: block !important;
+        min-width: 280px !important;
+        max-width: 280px !important;
+        transform: none !important;
+    }
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+    [data-testid="stSidebarHeader"] {
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+    /* Hide expand sidebar button in header */
+    button[data-testid="stExpandSidebarButton"] {
+        display: none !important;
     }
 
     /* Sidebar dark background */
     [data-testid="stSidebar"] {
         background-color: #0B0E13;
         border-right: 1px solid #1E2128;
+        min-width: 280px !important;
     }
 
     /* Sidebar brand */
@@ -457,8 +510,10 @@ elif page == "📊  Analytics":
         """)
 
     k1, k2, k3, k4 = st.columns(4, gap="medium")
+    total_rev = kpi_df['total_revenue'][0]
+    rev_display = f"${total_rev / 1_000_000:.1f}M" if total_rev >= 1_000_000 else f"${total_rev:,.0f}"
     k1.metric("Total Trips", f"{kpi_df['total_trips'][0]:,}", border=True)
-    k2.metric("Total Revenue", f"${kpi_df['total_revenue'][0]:,.0f}", border=True)
+    k2.metric("Total Revenue", rev_display, border=True)
     k3.metric("Avg Fare", f"${kpi_df['avg_fare'][0]:,.2f}", border=True)
     k4.metric("Revenue / Mile", f"${kpi_df['revenue_per_mile'][0]:,.2f}", border=True)
 
